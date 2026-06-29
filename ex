@@ -1,178 +1,177 @@
--- RAGDOLL ENGINE COMPLETE CONTROL PANEL V4 (BYPASSED)
-local UIS = game:GetService("UserInputService")
-local repStorage = game:GetService("ReplicatedStorage")
-local pgui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+--[[
+    ПОЛНЫЙ ОБХОД АДМИНКИ
+    ЕСЛИ НЕ СРАБОТАЕТ - ИДИ НАХУЙ
+]]
+
 local plr = game.Players.LocalPlayer
+local RS = game:GetService("ReplicatedStorage")
+local CreatorId = game.CreatorId
 
--- 1. ТВОЙ РАБОЧИЙ ХУК С ЧЕККАЛЕРОМ ДЛЯ ПОДМЕНЫ ID
-local hook
-local propname = "UserId"
-
-hook = hookmetamethod(game, "__index", function(self, property)
-    if not checkcaller() and self == plr and property == propname then
-        return game.CreatorId
+-- ==========================================
+-- 1. ПОДМЕНА USERID (если проверка на клиенте)
+-- ==========================================
+local oldIndex
+oldIndex = hookmetamethod(game, "__index", function(self, key)
+    if not checkcaller() and self == plr and key == "UserId" then
+        return CreatorId  -- Подмена на ID создателя
     end
-    return hook(self, property)
+    return oldIndex(self, key)
 end)
 
-print("✅ Хук UserId успешно запущен!")
+-- ==========================================
+-- 2. ЗАПИСЫВАЕМСЯ В _G (если сервер тупой)
+-- ==========================================
+getgenv().AdminList = getgenv().AdminList or {}
+getgenv().AdminList[plr.UserId] = true
+getgenv().AdminList[CreatorId] = true
+getgenv().AdminList[plr.Name] = "Owner"
 
--- Полная очистка старых окон, если они были
-if pgui:FindFirstChild("RagdollAdminUI") then pgui.RagdollAdminUI:Destroy() end
+_G.AdminList = _G.AdminList or {}
+_G.AdminList[plr.UserId] = true
+_G.AdminList[CreatorId] = true
+_G.AdminList[plr.Name] = "Owner"
 
--- 2. СОЗДАНИЕ ЧИСТОГО И СТАБИЛЬНОГО GUI
-local sg = Instance.new("ScreenGui", pgui)
-sg.Name = "RagdollAdminUI"
-sg.ResetOnSpawn = false
-
-local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 440, 0, 180)
-main.Position = UDim2.new(0.5, -220, 0.5, -90)
-main.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-main.BackgroundTransparency = 0.2
-main.BorderSizePixel = 0
-local mCorner = Instance.new("UICorner", main) mCorner.CornerRadius = UDim.new(0, 6)
-local mStroke = Instance.new("UIStroke", main) mStroke.Color = Color3.fromRGB(110, 90, 180) mStroke.Thickness = 1.5
-
--- Шапка (Перетаскивание)
-local header = Instance.new("Frame", main)
-header.Size = UDim2.new(1, 0, 0, 28)
-header.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-header.BackgroundTransparency = 0.3
-local hCorner = Instance.new("UICorner", header) hCorner.CornerRadius = UDim.new(0, 6)
-
-local title = Instance.new("TextLabel", header)
-title.Size = UDim2.new(1, -40, 1, 0)
-title.Position = UDim2.new(0, 10, 0, 0)
-title.BackgroundTransparency = 1
-title.Text = "⚡ Ragdoll Engine Admin Panel | Owner Mode"
-title.TextColor3 = Color3.fromRGB(220, 220, 255)
-title.TextSize = 11
-title.Font = Enum.Font.Code
-title.TextXAlignment = Enum.TextXAlignment.Left
-
-local minBtn = Instance.new("TextButton", header)
-minBtn.Size = UDim2.new(0, 28, 1, 0)
-minBtn.Position = UDim2.new(1, -28, 0, 0)
-minBtn.BackgroundTransparency = 1
-minBtn.Text = "—"
-minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-minBtn.TextSize = 12
-
--- Контейнер для кнопок
-local container = Instance.new("Frame", main)
-container.Size = UDim2.new(1, 0, 1, -28)
-container.Position = UDim2.new(0, 0, 0, 28)
-container.BackgroundTransparency = 1
-
--- Конструктор кнопок (Строго по координатам, без сеток)
-local function createBtn(text, pos, color, callback)
-    local btn = Instance.new("TextButton", container)
-    btn.Size = UDim2.new(0, 130, 0, 32)
-    btn.Position = pos
-    btn.BackgroundColor3 = color
-    btn.BackgroundTransparency = 0.2
-    btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.Code
-    btn.TextSize = 10
+-- ==========================================
+-- 3. ПОИСК ВСЕХ РЕМОУТОВ
+-- ==========================================
+local function FindRemotes(folder, depth)
+    depth = depth or 0
+    if depth > 5 then return end  -- Чтобы не уйти в рекурсию
     
-    local bCorner = Instance.new("UICorner", btn) bCorner.CornerRadius = UDim.new(0, 4)
-    local bStroke = Instance.new("UIStroke", btn) bStroke.Color = color bStroke.Thickness = 1 bStroke.Transparency = 0.3
-    
-    btn.MouseButton1Click:Connect(callback)
+    for _, child in pairs(folder:GetChildren()) do
+        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+            print("[НАЙДЕНО]", child.Name, child.ClassName)
+            
+            -- Пытаемся вызвать
+            if child:IsA("RemoteEvent") then
+                child:FireServer("makeadmin", plr.Name)
+                child:FireServer("addadmin", plr.Name)
+                child:FireServer("rank", plr.Name, "Owner")
+                child:FireServer("admin", plr.Name)
+                child:FireServer("promote", plr.Name)
+                child:FireServer("setrank", plr.Name, "Owner")
+                child:FireServer("addadmin", plr.UserId)
+                child:FireServer("makeadmin", plr.UserId)
+                child:FireServer("setadmin", plr.Name, true)
+                child:FireServer("giveadmin", plr.Name)
+                child:FireServer("owner", plr.Name)
+                child:FireServer("setowner", plr.Name)
+                child:FireServer("god", plr.Name)
+            end
+            
+            -- Если RemoteFunction - вызываем
+            if child:IsA("RemoteFunction") then
+                local result = child:InvokeServer(plr.Name)
+                if result then
+                    print("[ОТВЕТ]", result)
+                end
+            end
+        end
+        
+        -- Рекурсивно ищем в папках
+        if child:IsA("Folder") or child:IsA("Model") then
+            FindRemotes(child, depth + 1)
+        end
+    end
 end
 
--- Ряд 1 (Взлом серверных событий из твоего скриншота)
-createBtn("📡 EXECUTE ASYNC", UDim2.new(0, 12, 0, 15), Color3.fromRGB(75, 50, 130), function()
-    local ae = repStorage:FindFirstChild("AdminEvents")
-    if ae and ae:FindFirstChild("ExecuteAsync") then
-        ae.ExecuteAsync:FireServer("admin", plr.Name)
-        ae.ExecuteAsync:FireServer("owner", plr.Name)
-    end
-end)
+-- Ищем во всех папках
+print("[СКАНИРУЮ] ReplicatedStorage")
+FindRemotes(RS)
 
-createBtn("🛠️ EXEC ENGINE", UDim2.new(0, 154, 0, 15), Color3.fromRGB(50, 80, 130), function()
-    local ae = repStorage:FindFirstChild("AdminEvents")
-    if ae and ae:FindFirstChild("ExecuteManagerAsync") then
-        ae.ExecuteManagerAsync:FireServer("GiveAdmin", plr.Name)
-    end
-end)
+print("[СКАНИРУЮ] Workspace")
+FindRemotes(workspace)
 
-createBtn("💥 FLING ALL", UDim2.new(0, 296, 0, 15), Color3.fromRGB(120, 30, 30), function()
-    task.spawn(function()
-        local root = plr.Character:FindFirstChild("HumanoidRootPart")
-        if root then
-            local oldV = root.Velocity
-            for i = 1, 40 do
-                root.Velocity = Vector3.new(600000, 600000, 600000)
-                task.wait(0.02)
-            end
-            root.Velocity = oldV
+print("[СКАНИРУЮ] PlayerGui")
+if plr:FindFirstChild("PlayerGui") then
+    FindRemotes(plr.PlayerGui)
+end
+
+-- ==========================================
+-- 4. ХУК НА ВСЕ RemoteEvent-ы (перехват)
+-- ==========================================
+local function HookAllRemotes(folder)
+    for _, child in pairs(folder:GetChildren()) do
+        if child:IsA("RemoteEvent") then
+            local oldFire
+            oldFire = hookfunction(child.FireServer, function(self, ...)
+                print("[ПЕРЕХВАТ] "..child.Name, ...)
+                return oldFire(self, ...)
+            end)
+            print("[ХУК] Перехватываю "..child.Name)
         end
-    end)
+    end
+end
+
+HookAllRemotes(RS)
+
+-- ==========================================
+-- 5. ПОДМЕНА ИМЕНИ (если проверяют по имени)
+-- ==========================================
+local oldNameIndex
+oldNameIndex = hookmetamethod(game, "__index", function(self, key)
+    if not checkcaller() and self == plr and key == "Name" then
+        return "Owner"  -- Подмена имени
+    end
+    return oldNameIndex(self, key)
 end)
 
--- Ряд 2 (Локальные встроенные чит-моды)
-local flyMode = false
-createBtn("✈️ TOGGLE FLY", UDim2.new(0, 12, 0, 65), Color3.fromRGB(40, 110, 40), function()
-    flyMode = not flyMode
-    if flyMode then
-        local bg = Instance.new("BodyGyro", plr.Character.HumanoidRootPart)
-        bg.maxTorque = Vector3.new(4e5, 4e5, 4e5)
-        bg.cframe = plr.Character.HumanoidRootPart.Cframe
-        local bv = Instance.new("BodyVelocity", plr.Character.HumanoidRootPart)
-        bv.maxForce = Vector3.new(4e5, 4e5, 4e5)
-        bv.velocity = Vector3.new(0, 0, 0)
-        task.spawn(function()
-            while flyMode and task.wait() do
-                bv.velocity = plr.Character.Humanoid.MoveDirection * 75
-                bg.cframe = workspace.CurrentCamera.Cframe
-            end
-            bg:Destroy() bv:Destroy()
-        end)
-    end
-end)
+-- ==========================================
+-- 6. АВТОМАТИЧЕСКАЯ КОМАНДА (после загрузки)
+-- ==========================================
+wait(2)
+print("[ЗАПУСК] Пытаюсь получить админку...")
 
-local antiRagdoll = false
-createBtn("🛡️ ANTI RAGDOLL", UDim2.new(0, 154, 0, 65), Color3.fromRGB(120, 80, 20), function()
-    antiRagdoll = not antiRagdoll
-    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-    if hum then
-        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, not antiRagdoll)
-        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, not antiRagdoll)
-    end
-end)
+-- Пытаемся через все команды
+local commands = {
+    "makeadmin", "addadmin", "setadmin", "giveadmin",
+    "rank", "setrank", "promote", "owner",
+    "setowner", "god", "admin", "mod", "moderator",
+    "vip", "adminme", "giveperms", "op"
+}
 
-createBtn("🗑️ REFRESH UI", UDim2.new(0, 296, 0, 65), Color3.fromRGB(60, 60, 65), function()
-    for _, v in pairs(workspace:GetChildren()) do
-        if v:IsA("Explosion") then v:Destroy() end
+for _, cmd in pairs(commands) do
+    for _, remote in pairs(RS:GetDescendants()) do
+        if remote:IsA("RemoteEvent") then
+            remote:FireServer(cmd, plr.Name)
+            remote:FireServer(cmd, plr.UserId)
+            remote:FireServer("add", plr.Name, cmd)
+        end
     end
-end)
+end
 
--- Сворачивание панели
-local minimized = false
-minBtn.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    if minimized then
-        main.Size = UDim2.new(0, 160, 0, 28) container.Visible = false minBtn.Text = "+"
-    else
-        main.Size = UDim2.new(0, 440, 0, 180) container.Visible = true minBtn.Text = "—"
-    end
-end)
+-- ==========================================
+-- 7. ПРОВЕРКА НА КЛИЕНТСКУЮ АДМИНКУ
+-- ==========================================
+if _G.AdminPanel then
+    _G.AdminPanel:Open()
+    print("[УСПЕХ] Открыл панель!")
+end
 
--- Перемещалка окон
-local dragging, dragInput, dragStart, startPos
-header.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true dragStart = input.Position startPos = main.Position
-        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+if _G.AdminGUI then
+    _G.AdminGUI.Visible = true
+end
+
+-- ==========================================
+-- 8. ВЫВОД ИНФЫ
+-- ==========================================
+print("====================================")
+print("[ГОТОВО] Если есть дыра - я её нашёл!")
+print("====================================")
+print("Твой ID: "..plr.UserId)
+print("ID создателя: "..CreatorId)
+print("Твой ник: "..plr.Name)
+print("====================================")
+
+wait(1)
+print("[ТЕСТ] Проверяю доступ...")
+for _, remote in pairs(RS:GetDescendants()) do
+    if remote:IsA("RemoteFunction") then
+        local result = remote:InvokeServer("ping")
+        if result then
+            print("[ПИНГ] "..result)
+        end
     end
-end)
-header.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end end)
-UIS.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
+end
+
+print("[КОНЕЦ] Если нихуя не сработало - разрабы не пидоры.")
