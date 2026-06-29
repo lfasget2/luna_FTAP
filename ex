@@ -1,28 +1,27 @@
--- ЕБАШИМ coroutine, чтобы анти-чит не отследил
+-- ХУКАЕМ СРАЗУ НЕСКОЛЬКО МЕТОДОВ
 local plr = game.Players.LocalPlayer
-local RS = game:GetService("ReplicatedStorage")
 
--- Создаём новый поток
-local function ExploitThread()
-    -- Ждём рандомное время (чтобы не спалиться)
-    task.wait(math.random(1, 5))
-    
-    -- Ищем все RemoteEvent
-    for _, remote in pairs(RS:GetDescendants()) do
-        if remote:IsA("RemoteEvent") then
-            -- Пытаемся вызвать с рандомными аргументами
-            coroutine.wrap(function()
-                remote:FireServer("am_i_admin", plr.Name)
-                task.wait(0.5)
-                remote:FireServer("checkperms", plr.UserId)
-                task.wait(0.5)
-                remote:FireServer("getrank", plr.Name)
-            end)()
+-- 1. Хук на __index (для UserId)
+local oldIndex
+oldIndex = hookmetamethod(game, "__index", function(self, key)
+    if not checkcaller() and self == plr and key == "UserId" then
+        return game.CreatorId
+    end
+    return oldIndex(self, key)
+end)
+
+-- 2. Хук на __namecall (для вызовов методов)
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    if not checkcaller() and method == "FireServer" then
+        local args = {...}
+        -- Если пытаются вызвать что-то, связанное с проверкой прав
+        if args[1] == "IsAdmin" or args[1] == "CheckPerms" then
+            return
         end
     end
-end
+    return oldNamecall(self, ...)
+end)
 
--- Запускаем 5 потоков одновременно, чтобы заспамить
-for i = 1, 5 do
-    coroutine.wrap(ExploitThread)()
-end
+print("[ХУК] Готов, блять!")
