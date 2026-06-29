@@ -1,12 +1,13 @@
--- RAGDOLL MAIN PANEL V3 (NO CACHE BUG)
+-- RAGDOLL ENGINE COMPLETE CONTROL PANEL V4 (BYPASSED)
 local UIS = game:GetService("UserInputService")
 local repStorage = game:GetService("ReplicatedStorage")
 local pgui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 local plr = game.Players.LocalPlayer
 
--- 1. ХУК USERID
+-- 1. ТВОЙ РАБОЧИЙ ХУК С ЧЕККАЛЕРОМ ДЛЯ ПОДМЕНЫ ID
 local hook
 local propname = "UserId"
+
 hook = hookmetamethod(game, "__index", function(self, property)
     if not checkcaller() and self == plr and property == propname then
         return game.CreatorId
@@ -14,10 +15,12 @@ hook = hookmetamethod(game, "__index", function(self, property)
     return hook(self, property)
 end)
 
--- Полная зачистка старых интерфейсов
+print("✅ Хук UserId успешно запущен!")
+
+-- Полная очистка старых окон, если они были
 if pgui:FindFirstChild("RagdollAdminUI") then pgui.RagdollAdminUI:Destroy() end
 
--- 2. СОЗДАНИЕ СТАБИЛЬНОГО ОКНА
+-- 2. СОЗДАНИЕ ЧИСТОГО И СТАБИЛЬНОГО GUI
 local sg = Instance.new("ScreenGui", pgui)
 sg.Name = "RagdollAdminUI"
 sg.ResetOnSpawn = false
@@ -31,7 +34,7 @@ main.BorderSizePixel = 0
 local mCorner = Instance.new("UICorner", main) mCorner.CornerRadius = UDim.new(0, 6)
 local mStroke = Instance.new("UIStroke", main) mStroke.Color = Color3.fromRGB(110, 90, 180) mStroke.Thickness = 1.5
 
--- Шапка окна
+-- Шапка (Перетаскивание)
 local header = Instance.new("Frame", main)
 header.Size = UDim2.new(1, 0, 0, 28)
 header.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
@@ -56,12 +59,13 @@ minBtn.Text = "—"
 minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 minBtn.TextSize = 12
 
--- Контейнер для кнопок (прямое позиционирование)
+-- Контейнер для кнопок
 local container = Instance.new("Frame", main)
 container.Size = UDim2.new(1, 0, 1, -28)
 container.Position = UDim2.new(0, 0, 0, 28)
 container.BackgroundTransparency = 1
 
+-- Конструктор кнопок (Строго по координатам, без сеток)
 local function createBtn(text, pos, color, callback)
     local btn = Instance.new("TextButton", container)
     btn.Size = UDim2.new(0, 130, 0, 32)
@@ -79,7 +83,7 @@ local function createBtn(text, pos, color, callback)
     btn.MouseButton1Click:Connect(callback)
 end
 
--- Распределяем кнопки строго вручную по пикселям
+-- Ряд 1 (Взлом серверных событий из твоего скриншота)
 createBtn("📡 EXECUTE ASYNC", UDim2.new(0, 12, 0, 15), Color3.fromRGB(75, 50, 130), function()
     local ae = repStorage:FindFirstChild("AdminEvents")
     if ae and ae:FindFirstChild("ExecuteAsync") then
@@ -109,6 +113,7 @@ createBtn("💥 FLING ALL", UDim2.new(0, 296, 0, 15), Color3.fromRGB(120, 30, 30
     end)
 end)
 
+-- Ряд 2 (Локальные встроенные чит-моды)
 local flyMode = false
 createBtn("✈️ TOGGLE FLY", UDim2.new(0, 12, 0, 65), Color3.fromRGB(40, 110, 40), function()
     flyMode = not flyMode
@@ -145,7 +150,7 @@ createBtn("🗑️ REFRESH UI", UDim2.new(0, 296, 0, 65), Color3.fromRGB(60, 60,
     end
 end)
 
--- Сворачивание
+-- Сворачивание панели
 local minimized = false
 minBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
@@ -156,7 +161,7 @@ minBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Драг
+-- Перемещалка окон
 local dragging, dragInput, dragStart, startPos
 header.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
