@@ -1,27 +1,22 @@
--- ХУКАЕМ СРАЗУ НЕСКОЛЬКО МЕТОДОВ
+local RS = game:GetService("ReplicatedStorage")
 local plr = game.Players.LocalPlayer
 
--- 1. Хук на __index (для UserId)
-local oldIndex
-oldIndex = hookmetamethod(game, "__index", function(self, key)
-    if not checkcaller() and self == plr and key == "UserId" then
-        return game.CreatorId
-    end
-    return oldIndex(self, key)
-end)
+-- Пробуем все варианты
+local push = RS:FindFirstChild("PushEvent_RemoteEvent")
 
--- 2. Хук на __namecall (для вызовов методов)
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
-    if not checkcaller() and method == "FireServer" then
-        local args = {...}
-        -- Если пытаются вызвать что-то, связанное с проверкой прав
-        if args[1] == "IsAdmin" or args[1] == "CheckPerms" then
-            return
-        end
-    end
-    return oldNamecall(self, ...)
-end)
-
-print("[ХУК] Готов, блять!")
+if push and push:IsA("RemoteEvent") then
+    print("[ПЫТАЮСЬ] PushEvent_RemoteEvent")
+    
+    -- Вариант 1: сделать себя админом
+    push:FireServer("makeadmin", plr.Name)
+    push:FireServer("setadmin", plr.Name, true)
+    push:FireServer("addadmin", plr.Name)
+    
+    -- Вариант 2: отправить команду
+    push:FireServer("command", "makeadmin", plr.Name)
+    push:FireServer("cmd", "admin", plr.Name)
+    
+    -- Вариант 3: если через таблицу
+    push:FireServer({cmd = "makeadmin", target = plr.Name})
+    push:FireServer({action = "rank", player = plr.Name, rank = "Owner"})
+end
