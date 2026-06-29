@@ -1,194 +1,208 @@
--- КАСТОМНЫЙ ОПТИМИЗИРОВАННЫЙ ИНЖЕКТОР ВНУТРИ ИГРЫ (До 100k строк)
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
+-- ADVANCED LUNA EXECUTOR v2.0 (MONOLITH OPTIMIZED)
+local UIS = game:GetService("UserInputService")
 local pgui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+if pgui:FindFirstChild("LunaExecutor") then pgui.LunaExecutor:Destroy() end
 
--- Удаляем старую версию при перезапуске
-if pgui:FindFirstChild("CustomExecutorUI") then
-    pgui.CustomExecutorUI:Destroy()
-end
-
--- Создаем контейнер интерфейса
 local sg = Instance.new("ScreenGui", pgui)
-sg.Name = "CustomExecutorUI"
+sg.Name = "LunaExecutor"
 sg.ResetOnSpawn = false
 sg.DisplayOrder = 9999
 
--- Главное окно инжектора
-local mainFrame = Instance.new("Frame", sg)
-mainFrame.Size = UDim2.new(0, 550, 0, 350)
-mainFrame.Position = UDim2.new(0.5, -275, 0.5, -175)
-mainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
-mainFrame.BackgroundTransparency = 0.2 -- Стильная полупрозрачность
-mainFrame.BorderSizePixel = 0
+local playerHWID = (gethwid and gethwid()) or (game:GetService("RbxAnalyticsService"):GetClientId())
+local saveFolder = "Luna_Scripts_" .. string.sub(playerHWID, 1, 12)
 
-local corner = Instance.new("UICorner", mainFrame)
-corner.CornerRadius = UDim.new(0, 8)
+local main = Instance.new("Frame", sg)
+main.Size = UDim2.new(0, 600, 0, 380)
+main.Position = UDim2.new(0.5, -300, 0.5, -190)
+main.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+main.BorderSizePixel = 0
+local mCorner = Instance.new("UICorner", main) mCorner.CornerRadius = UDim.new(0, 8)
+local mStroke = Instance.new("UIStroke", main) mStroke.Color = Color3.fromRGB(90, 80, 150) mStroke.Thickness = 1.5
 
-local stroke = Instance.new("UIStroke", mainFrame)
-stroke.Color = Color3.fromRGB(80, 80, 120)
-stroke.Thickness = 1.5
-stroke.Transparency = 0.4
-
--- Шапка окна (Зона перетаскивания)
-local header = Instance.new("Frame", mainFrame)
-header.Size = UDim2.new(1, 0, 0, 35)
-header.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-header.BackgroundTransparency = 0.3
+local header = Instance.new("Frame", main)
+header.Size = UDim2.new(1, 0, 0, 30)
+header.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
 header.BorderSizePixel = 0
-
-local hCorner = Instance.new("UICorner", header)
-hCorner.CornerRadius = UDim.new(0, 8)
+local hCorner = Instance.new("UICorner", header) hCorner.CornerRadius = UDim.new(0, 8)
 
 local title = Instance.new("TextLabel", header)
 title.Size = UDim2.new(1, -100, 1, 0)
 title.Position = UDim2.new(0, 12, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "My Custom Executor v1.0 | LuaU"
-title.TextColor3 = Color3.fromRGB(230, 230, 255)
-title.TextSize = 13
+title.Text = "🌙 LUNA EXECUTOR v2.0 | Secured by HWID"
+title.TextColor3 = Color3.fromRGB(210, 210, 255)
+title.TextSize = 12
 title.Font = Enum.Font.Code
 title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Кнопка Свернуть/Развернуть (_)
 local minBtn = Instance.new("TextButton", header)
-minBtn.Size = UDim2.new(0, 30, 0, 30)
-minBtn.Position = UDim2.new(1, -35, 0, 2)
+minBtn.Size = UDim2.new(0, 30, 1, 0)
+minBtn.Position = UDim2.new(1, -30, 0, 0)
 minBtn.BackgroundTransparency = 1
 minBtn.Text = "—"
 minBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 minBtn.TextSize = 14
-minBtn.Font = Enum.Font.Code
 
--- Контейнер для текстового поля со скроллом
-local scroll = Instance.new("ScrollingFrame", mainFrame)
-scroll.Size = UDim2.new(1, -20, 1, -95)
-scroll.Position = UDim2.new(0, 10, 0, 45)
-scroll.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
-scroll.BackgroundTransparency = 0.5
-scroll.BorderSizePixel = 0
-scroll.ScrollBarThickness = 5
-scroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 100)
+local tabSidebar = Instance.new("ScrollingFrame", main)
+tabSidebar.Size = UDim2.new(0, 110, 1, -75)
+tabSidebar.Position = UDim2.new(0, 8, 0, 38)
+tabSidebar.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+tabSidebar.BorderSizePixel = 0
+tabSidebar.ScrollBarThickness = 2
+local tsCorner = Instance.new("UICorner", tabSidebar) tsCorner.CornerRadius = UDim.new(0, 6)
+local tabLayout = Instance.new("UIListLayout", tabSidebar) tabLayout.SortOrder = Enum.SortOrder.LayoutOrder tabLayout.Padding = UDim.new(0, 4)
 
-local sCorner = Instance.new("UICorner", scroll)
-sCorner.CornerRadius = UDim.new(0, 6)
+local editorScroll = Instance.new("ScrollingFrame", main)
+editorScroll.Size = UDim2.new(1, -135, 1, -75)
+editorScroll.Position = UDim2.new(0, 125, 0, 38)
+editorScroll.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
+editorScroll.BorderSizePixel = 0
+editorScroll.ScrollBarThickness = 5
+local esCorner = Instance.new("UICorner", editorScroll) esCorner.CornerRadius = UDim.new(0, 6)
 
--- Сверхмощное текстовое поле для кода (TextBox)
-local editor = Instance.new("TextBox", scroll)
-editor.Size = UDim2.new(1, -10, 1, 0)
-editor.Position = UDim2.new(0, 5, 0, 5)
-editor.BackgroundTransparency = 1
-editor.MultiLine = true -- Позволяет вставлять огромные абзацы текста
-editor.ClearTextOnFocus = false -- Код не сотрется случайно при клике
-editor.Text = "-- Вставь свой огромный скрипт сюда..."
-editor.TextColor3 = Color3.fromRGB(200, 255, 200) -- Красивый зеленый хакерский цвет текста
-editor.TextSize = 12
-editor.Font = Enum.Font.Code
-editor.TextXAlignment = Enum.TextXAlignment.Left
-editor.TextYAlignment = Enum.TextYAlignment.Top
+local linesLabel = Instance.new("TextLabel", editorScroll)
+linesLabel.Size = UDim2.new(0, 30, 1, 0)
+linesLabel.Position = UDim2.new(0, 5, 0, 5)
+linesLabel.BackgroundTransparency = 1
+linesLabel.Text = "1"
+linesLabel.TextColor3 = Color3.fromRGB(80, 80, 100)
+linesLabel.TextSize = 12
+linesLabel.Font = Enum.Font.Code
+linesLabel.TextYAlignment = Enum.TextYAlignment.Top
+linesLabel.TextXAlignment = Enum.TextXAlignment.Right
 
--- Динамическое расширение редактора под размер кода, чтобы скролл не багался
-editor:GetPropertyChangedSignal("TextBounds"):Connect(function()
-    scroll.CanvasSize = UDim2.new(0, editor.TextBounds.X + 20, 0, editor.TextBounds.Y + 20)
-    editor.Size = UDim2.new(1, -10, 0, math.max(scroll.AbsoluteSize.Y, editor.TextBounds.Y))
+local box = Instance.new("TextBox", editorScroll)
+box.Size = UDim2.new(1, -45, 1, 0)
+box.Position = UDim2.new(0, 42, 0, 5)
+box.BackgroundTransparency = 1
+box.MultiLine = true
+box.ClearTextOnFocus = false
+box.Text = ""
+box.TextColor3 = Color3.fromRGB(180, 240, 180)
+box.TextSize = 12
+box.Font = Enum.Font.Code
+box.TextXAlignment = Enum.TextXAlignment.Left
+box.TextYAlignment = Enum.TextYAlignment.Top
+
+local tabs = {}
+local activeTab = nil
+
+local function getSavedCode(tabName)
+    local filename = saveFolder .. "_" .. tabName .. ".txt"
+    if readfile then local s, c = pcall(function() return readfile(filename) end) if s then return c end end
+    return ""
+end
+
+local function saveCodeToFile(tabName, text)
+    local filename = saveFolder .. "_" .. tabName .. ".txt"
+    if writefile then pcall(function() writefile(filename, text) end) end
+end
+
+local function selectTab(tabId)
+    if activeTab then
+        tabs[activeTab].code = box.Text
+        saveCodeToFile(tabs[activeTab].name, box.Text)
+        tabs[activeTab].button.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+        tabs[activeTab].button.UIStroke.Color = Color3.fromRGB(40, 40, 50)
+    end
+    activeTab = tabId
+    box.Text = tabs[tabId].code
+    tabs[tabId].button.BackgroundColor3 = Color3.fromRGB(45, 40, 75)
+    tabs[tabId].button.UIStroke.Color = Color3.fromRGB(120, 100, 200)
+end
+
+local function createTab(name, initialCode)
+    local tabId = #tabs + 1
+    local codeContent = (initialCode and initialCode ~= "") and initialCode or getSavedCode(name)
+    local btn = Instance.new("TextButton", tabSidebar)
+    btn.Size = UDim2.new(1, -4, 0, 25)
+    btn.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+    btn.Text = "  " .. name
+    btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+    btn.Font = Enum.Font.Code
+    btn.TextSize = 11
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    local bCorner = Instance.new("UICorner", btn) bCorner.CornerRadius = UDim.new(0, 4)
+    local bStroke = Instance.new("UIStroke", btn) bStroke.Color = Color3.fromRGB(40, 40, 50) bStroke.Thickness = 1
+    tabs[tabId] = {name = name, code = codeContent, button = btn}
+    btn.MouseButton1Click:Connect(function() selectTab(tabId) end)
+    if #tabs == 1 then selectTab(tabId) end
+end
+
+createTab("Script_1", "")
+createTab("Script_2", "")
+createTab("Script_3", "")
+
+box:GetPropertyChangedSignal("Text"):Connect(function()
+    if activeTab then tabs[activeTab].code = box.Text saveCodeToFile(tabs[activeTab].name, box.Text) end
+    local _, lines = box.Text:gsub("\n", "") lines = lines + 1
+    local lineStr = "" for i = 1, lines do lineStr = lineStr .. i .. "\n" end
+    linesLabel.Text = lineStr
+    editorScroll.CanvasSize = UDim2.new(0, box.TextBounds.X + 60, 0, math.max(box.TextBounds.Y, linesLabel.TextBounds.Y) + 30)
+    box.Size = UDim2.new(1, -45, 0, math.max(editorScroll.AbsoluteSize.Y, box.TextBounds.Y))
+    linesLabel.Size = UDim2.new(0, 30, 0, linesLabel.TextBounds.Y)
 end)
 
--- Панель под кнопки (Внизу)
-local footer = Instance.new("Frame", mainFrame)
-footer.Size = UDim2.new(1, 0, 0, 40)
-footer.Position = UDim2.new(0, 0, 1, -45)
+local footer = Instance.new("Frame", main)
+footer.Size = UDim2.new(1, 0, 0, 35)
+footer.Position = UDim2.new(0, 0, 1, -35)
 footer.BackgroundTransparency = 1
 
--- Кнопка EXECUTE (ИНЖЕКТ)
-local execBtn = Instance.new("TextButton", footer)
-execBtn.Size = UDim2.new(0, 120, 0, 32)
-execBtn.Position = UDim2.new(0, 10, 0, 4)
-execBtn.BackgroundColor3 = Color3.fromRGB(35, 85, 45)
-execBtn.Text = "Execute"
-execBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-execBtn.Font = Enum.Font.Code
-execBtn.TextSize = 13
-local eCorner = Instance.new("UICorner", execBtn) eCorner.CornerRadius = UDim.new(0, 5)
+local play = Instance.new("TextButton", footer)
+play.Size = UDim2.new(0, 90, 0, 26)
+play.Position = UDim2.new(0, 125, 0, 2)
+play.BackgroundColor3 = Color3.fromRGB(35, 100, 45)
+play.TextColor3 = Color3.fromRGB(255, 255, 255)
+play.Text = "▶ PLAY"
+play.Font = Enum.Font.Code
+local pCorner = Instance.new("UICorner", play) pCorner.CornerRadius = UDim.new(0, 4)
+play.MouseButton1Click:Connect(function() if box.Text ~= "" then local f, err = loadstring(box.Text) if f then task.spawn(f) else warn("Ошибка: " .. tostring(err)) end end end)
 
--- Кнопка CLEAR (ОЧИСТИТЬ)
-local clearBtn = Instance.new("TextButton", footer)
-clearBtn.Size = UDim2.new(0, 100, 0, 32)
-clearBtn.Position = UDim2.new(0, 140, 0, 4)
-clearBtn.BackgroundColor3 = Color3.fromRGB(85, 35, 35)
-clearBtn.Text = "Clear"
-clearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-clearBtn.Font = Enum.Font.Code
-clearBtn.TextSize = 13
-local cCorner = Instance.new("UICorner", clearBtn) cCorner.CornerRadius = UDim.new(0, 5)
+local clear = Instance.new("TextButton", footer)
+clear.Size = UDim2.new(0, 90, 0, 26)
+clear.Position = UDim2.new(0, 225, 0, 2)
+clear.BackgroundColor3 = Color3.fromRGB(110, 35, 35)
+clear.TextColor3 = Color3.fromRGB(255, 255, 255)
+clear.Text = "🗑️ CLEAR"
+clear.Font = Enum.Font.Code
+local cCorner = Instance.new("UICorner", clear) cCorner.CornerRadius = UDim.new(0, 4)
+clear.MouseButton1Click:Connect(function() box.Text = "" end)
 
-----------------=======================================================
--- ЛОГИКА РАБОТЫ КНОПОК
-----------------=======================================================
+local addTab = Instance.new("TextButton", footer)
+addTab.Size = UDim2.new(0, 110, 0, 26)
+addTab.Position = UDim2.new(0, 8, 0, 2)
+addTab.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+addTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+addTab.Text = "+ NEW TAB"
+addTab.Font = Enum.Font.Code
+local atCorner = Instance.new("UICorner", addTab) atCorner.CornerRadius = UDim.new(0, 4)
+addTab.MouseButton1Click:Connect(function() createTab("Script_" .. (#tabs + 1), "") end)
 
--- Кнопка выполнения скрипта через внутренний компилятор
-execBtn.MouseButton1Click:Connect(function()
-    local code = editor.Text
-    if code and code ~= "" then
-        local success, err = pcall(function()
-            local func = loadstring(code)
-            if func then
-                task.spawn(func)
-            else
-                error("Ошибка компиляции: Неверный синтаксис LuaU")
-            end
-        end)
-        if not success then
-            warn("🚨 Ошибка выполнения внутри кастомного инжектора: " .. tostring(err))
-        end
-    end
-end)
-
--- Кнопка мгновенной очистки поля
-clearBtn.MouseButton1Click:Connect(function()
-    editor.Text = ""
-end)
-
--- Логика сворачивания окна в маленькую кнопку на экране
-local isMinimized = false
+local minimized = false
 minBtn.MouseButton1Click:Connect(function()
-    isMinimized = not isMinimized
-    if isMinimized then
-        mainFrame.Size = UDim2.new(0, 150, 0, 35)
-        scroll.Visible = false
-        footer.Visible = false
-        minBtn.Text = " +"
-        title.Text = "Open Executor"
+    minimized = not minimized
+    if minimized then
+        main.Size = UDim2.new(0, 160, 0, 30)
+        tabSidebar.Visible = false editorScroll.Visible = false footer.Visible = false
+        minBtn.Text = "+" title.Text = "Luna Hidden"
     else
-        mainFrame.Size = UDim2.new(0, 550, 0, 350)
-        scroll.Visible = true
-        footer.Visible = true
-        minBtn.Text = "—"
-        title.Text = "My Custom Executor v1.0 | LuaU"
+        main.Size = UDim2.new(0, 600, 0, 380)
+        tabSidebar.Visible = true editorScroll.Visible = true footer.Visible = true
+        minBtn.Text = "—" title.Text = "🌙 LUNA EXECUTOR v2.0 | Secured by HWID"
     end
 end)
 
-----------------=======================================================
--- НЕБАГУЮЩЕЕСЯ ПЛАВНОЕ ПЕРЕТАСКИВАНИЕ ОКНА ЗА ШАПКУ
-----------------=======================================================
 local dragging, dragInput, dragStart, startPos
 header.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = mainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
-        end)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true dragStart = input.Position startPos = main.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
     end
 end)
-header.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
-end)
-UserInputService.InputChanged:Connect(function(input)
+header.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end end)
+UIS.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
         local delta = input.Position - dragStart
-        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
-
-print("🚀 Твой личный внутренний инжектор успешно запущен!")
